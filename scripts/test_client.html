@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Emily local test client</title>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<style>
+  body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+  #status { font-size: 1.2em; margin-bottom: 10px; }
+  #log { white-space: pre-wrap; background: #000; padding: 10px; border-radius: 6px; height: 60vh; overflow-y: auto; }
+  .ok { color: #4f4; }
+  .err { color: #f44; }
+</style>
+</head>
+<body>
+<div id="status">Not connected</div>
+<div id="log"></div>
+
+<script>
+function log(msg, cls) {
+  const el = document.getElementById("log");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function main() {
+  const params = new URLSearchParams(window.location.search);
+  const url = params.get("url");
+  const token = params.get("token");
+
+  if (!url || !token) {
+    document.getElementById("status").textContent = "Missing url/token in query string — use the link scripts/dispatch_local_test.py printed, don't open this file directly.";
+    return;
+  }
+
+  const room = new LivekitClient.Room();
+
+  room.on(LivekitClient.RoomEvent.Connected, () => {
+    document.getElementById("status").textContent = "CONNECTED — room: " + room.name;
+    log("Connected to room: " + room.name, "ok");
+  });
+
+  room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+    log("Participant joined: " + p.identity, "ok");
+  });
+
+  room.on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
+    log("Participant left: " + p.identity);
+  });
+
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+    log("Subscribed to " + track.kind + " track from " + participant.identity, "ok");
+    if (track.kind === "audio") {
+      const el = track.attach();
+      document.body.appendChild(el);
+    }
+  });
+
+  room.on(LivekitClient.RoomEvent.LocalTrackPublished, (pub) => {
+    log("Local track published: " + pub.kind + " (mic is live and sending audio)", "ok");
+  });
+
+  room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+    document.getElementById("status").textContent = "DISCONNECTED (" + reason + ")";
+    log("Disconnected: " + reason, "err");
+  });
+
+  room.on(LivekitClient.RoomEvent.TranscriptionReceived, (segments) => {
+    for (const seg of segments) {
+      log("Transcript [" + seg.participantIdentity + "]: " + seg.text);
+    }
+  });
+
+  try {
+    await room.connect(url, token);
+    log("Requesting microphone permission...");
+    await room.localParticipant.setMicrophoneEnabled(true);
+    log("Microphone enabled and publishing.", "ok");
+  } catch (err) {
+    document.getElementById("status").textContent = "ERROR: " + err.message;
+    log("Connection/mic error: " + err.message, "err");
+  }
+}
+
+main();
+</script>
+</body>
+</html>
