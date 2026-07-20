@@ -1,0 +1,28 @@
+# Secrets — never bake these into the image; inject at runtime instead
+.env
+.env.*
+!.env.example
+
+# Local virtual environment (rebuilt fresh inside the image)
+.venv/
+venv/
+
+# Call records (contain caller PII)
+call_logs/
+
+# Git / IDE / OS
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Reference-only project, not part of the deployable agent
+emily-ai-be/
